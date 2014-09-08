@@ -1,0 +1,66 @@
+# bus
+#for i in /sys/bus/*/devices/*/power/control; do option "$i" auto; done
+opts "/sys/bus/*/devices/*/power/control" auto
+
+# usb autosuspend
+#for i in /sys/bus/usb/devices/*/power/autosuspend; do option "$i" 10; done
+opts "/sys/bus/usb/devices/*/power/autosuspend" 10
+usb_powersave
+
+# nmi_watchdog
+opt /proc/sys/kernel/nmi_watchdog 0
+
+# cpu
+#for i in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do option "$i" powersave; done
+opts "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor" powersave
+load_mod msr
+run x86_energy_perf_policy powersave
+
+# aspm
+opt /sys/module/pcie_aspm/parameters/policy powersave
+
+# kernel write mode
+opt /proc/sys/vm/laptop_mode 5
+opt /proc/sys/vm/dirty_ratio 90
+opt /proc/sys/vm/dirty_background_ratio 1
+opt /proc/sys/vm/dirty_expire_centisecs 60000
+opt /proc/sys/vm/dirty_writeback_centisecs 60000
+
+# disk
+opts "/sys/class/scsi_host/host*/link_power_management_policy" min_power
+for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run mount -o remount,noatime,commit=600 "$dev"; done
+for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run blockdev --setra 4096 "$dev"; done
+for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run hdparm -B 1 -S 5 "$dev"; done
+
+# sound card
+opt /sys/module/snd_hda_intel/parameters/power_save 1
+opt /sys/module/snd_hda_intel/parameters/power_save_controller Y
+opt /sys/module/snd_ac97_codec/parameters/power_save 1
+
+# net
+for i in $(iw dev | awk '$1 == "Interface" { print $2 }'); do run iw dev "$i" set power_save on; done
+run ethtool -s eth0 wol d
+
+# screen
+brightness "/sys/class/backlight/*" 1
+
+# webcam
+unload_mod_recursive videodev || unbind_uvcvideo_devices
+
+# bluetooth
+unload_mod_recursive bluetooth || rfkill block bluetooth
+
+# open source ATI
+opt /sys/kernel/debug/vgaswitcheroo/switch OFF
+#for i in /sys/class/drm/card*/device/power_method; do option "$i" profile; done
+#for i in /sys/class/drm/card*/device/power_profile; do option "$i" low; done
+#for i in /sys/class/drm/card*/device/power_dpm_state; do option "$i" battery; done
+opts "/sys/class/drm/card*/device/power_method" profile
+opts "/sys/class/drm/card*/device/power_profile" low
+opts "/sys/class/drm/card*/device/power_dpm_state" battery
+
+# i915
+opt /sys/module/i915/parameters/enable_rc6 1
+opt /sys/module/i915/parameters/enable_fbc 1
+opt /sys/module/i915/parameters/lvds_downclock 1
+exit 0

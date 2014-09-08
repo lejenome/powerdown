@@ -2,26 +2,18 @@
 # powerdown - powerup
 #
 
-if [[ $EUID != 0 ]]; then
-    echo "[powerdown] must be run as root"
-    exit 1
-fi
-
-source /usr/lib/powerdown-functions
-lock
-
 # bus
-for i in /sys/bus/*/devices/*/power/control; do opt "$i" on; done
+opts "/sys/bus/*/devices/*/power/control" on
 
 # usb autosuspend
-for i in /sys/bus/usb/devices/*/power/autosuspend; do opt "$i" 600; done
-for i in /sys/bus/usb/devices/*/power/control; do opt "$i" on; done
+opts "/sys/bus/usb/devices/*/power/autosuspend" 600
+opts "/sys/bus/usb/devices/*/power/control" on
 
 # nmi_watchdog
 opt /proc/sys/kernel/nmi_watchdog 1
 
 # cpu
-for i in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do opt "$i" performance; done
+opts "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor" performance
 load_mod msr
 run x86_energy_perf_policy normal
 
@@ -36,7 +28,7 @@ opt /proc/sys/vm/dirty_expire_centisecs 600
 opt /proc/sys/vm/dirty_writeback_centisecs 600
 
 # disk
-for i in /sys/class/scsi_host/host*/link_power_management_policy; do opt "$i" medium_power; done
+opts "/sys/class/scsi_host/host*/link_power_management_policy" medium_power
 for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run mount -o remount,relatime "$dev"; done
 for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run blockdev --setra 256 "$dev"; done
 for dev in $(awk '/^\/dev\/sd/ {print $1}' /etc/mtab); do run hdparm -B 254 -S 253 "$dev"; done
@@ -51,7 +43,7 @@ for i in $(iw dev | awk '$1 == "Interface" { print $2 }'); do run iw dev "$i" se
 run ethtool -s eth0 wol g
 
 # screen
-for i in /sys/class/backlight/*; do opt "$i/brightness" "$(num_scale "$i/max_brightness" 5 )"; done
+brightness "/sys/class/backlight/*" 5
 
 # webcam
 load_mod videodev
@@ -61,9 +53,9 @@ load_mod bluetooth
 
 # open source ATI
 opt /sys/kernel/debug/vgaswitcheroo/switch ON
-for i in /sys/class/drm/card*/device/power_method; do opt "$i" profile; done
-for i in /sys/class/drm/card*/device/power_profile; do opt "$i" default; done
-for i in /sys/class/drm/card*/device/power_dpm_state; do opt "$i" balanced; done
+opts "/sys/class/drm/card*/device/power_method" profile
+opts "/sys/class/drm/card*/device/power_profile" default
+opts "/sys/class/drm/card*/device/power_dpm_state" balanced
 
 # i915
 #opt /sys/module/i915/parameters/i915_enable_rc6 0
